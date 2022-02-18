@@ -23,7 +23,6 @@ const PRETTY_KEYS = {
   "+": "Enter",
   "-": "Del",
 };
-
 const ROUNDS = 8;
 const LENGTH = 5;
 const lies = [];
@@ -53,8 +52,6 @@ async function animate(el, name, ms) {
 }
 
 async function startGame({ word, kb, board, words }) {
-  let guesses = [];
-  const solution = word.split("");
   let round = 0;
   for (round = 0; round < ROUNDS; round++) {
     const guess = await collectGuess({ kb, board, round, words });
@@ -223,3 +220,28 @@ function showLies() {
     blanks[lie].classList.add("letter--hint-lie");
   })
 }
+
+// Simulate button clicks on the virtual keyboard when physical keys are pressed.
+window.addEventListener('keydown', (e) => {
+  e.preventDefault();
+  let key = e.key;
+  if (key === 'Enter') {
+    key = '+';
+  } else if (key === 'Backspace') {
+    key = '-';
+  } else if (/[a-zA-Z]/.test(key)) {
+    key = key.toUpperCase();
+  } else {
+    console.log('invalid key');
+    return;
+  }
+  const keyboardElement = document.querySelectorAll(`[data-key='${key}']`)[0];
+  if (keyboardElement) {
+    const evt = new MouseEvent("click", {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+    });
+    keyboardElement.dispatchEvent(evt);
+  }
+});
