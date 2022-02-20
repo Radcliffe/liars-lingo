@@ -1,6 +1,12 @@
 const $ = (s, e = document.body) => e.querySelector(s);
 const $$ = (s, e = document.body) => [...e.querySelectorAll(s)];
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+const feedback = $(".feedback");
+
+const WRONG = 0;
+const CLOSE = 1;
+const CORRECT = 2;
+const choices = ['wrong', 'close', 'correct'];
 
 const dom = (tag, attrs, ...children) => {
   const el = document.createElement(tag);
@@ -28,7 +34,7 @@ const LENGTH = 5;
 const lies = [];
 
 const dictionaryRequest = fetch("/dictionary.txt").then((r) => r.text());
-const easywordsRequest = fetch("/easy-words.txt").then((r) => r.text());
+const easyWordsRequest = fetch("/easy-words.txt").then((r) => r.text());
 const board = $(".board");
 const keyboard = $(".keyboard");
 
@@ -39,8 +45,8 @@ async function init() {
   const kb = generateKeyboard();
 
   const words = (await dictionaryRequest).split("\n");
-  const easywords = (await easywordsRequest).split("\n");
-  const word = easywords[(Math.random() * easywords.length) | 0];
+  const easyWords = (await easyWordsRequest).split("\n");
+  const word = easyWords[(Math.random() * easyWords.length) | 0];
 
   await startGame({ word, kb, board, words });
 }
@@ -52,13 +58,12 @@ async function animate(el, name, ms) {
 }
 
 async function startGame({ word, kb, board, words }) {
-  let round = 0;
-  for (round = 0; round < ROUNDS; round++) {
+  for (let round = 0; round < ROUNDS; round++) {
     const guess = await collectGuess({ kb, board, round, words });
     const hints = getHints(guess, word);
     
     if (guess.join("") === word) {
-      $(".feedback").innerText = `Nice Work!`;
+      feedback.innerText = `Nice Work!`;
       showLies();
       board.revealHint(round, hints);
       return;
@@ -66,9 +71,8 @@ async function startGame({ word, kb, board, words }) {
       obfuscate(hints);
       board.revealHint(round, hints);
     }
-    
   }
-  $(".feedback").innerText = `GAME OVER\nCorrect Answer was: ${word}`;
+  feedback.innerText = `GAME OVER\nCorrect Answer was: ${word}`;
   showLies();
 }
 
@@ -80,7 +84,7 @@ function collectGuess({ kb, board, round, words }) {
         if (letters.length === LENGTH) {
           const guessIsValid = words.includes(letters.join(""));
           if (!guessIsValid) {
-            $(".feedback").innerText = "Invalid Word";
+            feedback.innerText = "Invalid Word";
             await animate($$(".round")[round], "shake", 800);
           } else {
             $(".feedback").innerText = "";
@@ -105,7 +109,6 @@ function collectGuess({ kb, board, round, words }) {
 }
 
 function generateBoard() {
-  const rows = [];
   for (let i = 0; i < ROUNDS; i++) {
     const row = dom("div", {
       class: "round",
@@ -129,9 +132,7 @@ function generateBoard() {
     revealHint: (round, hints) => {
       const blanks = $$(".letter", $$(".round")[round]);
       hints.forEach((hint, i) => {
-        if (hint) {
-          blanks[i].classList.add("letter--hint-" + hint);
-        }
+        blanks[i].classList.add("letter--hint-" + choices[hint]);
       });
     },
   };
@@ -172,26 +173,21 @@ function generateKeyboard() {
   };
 }
 
-
 function obfuscate(hints) {
-  let errorPosition = Math.floor(Math.random() * LENGTH);
-  lies.push(errorPosition);
-  let hint = hints[errorPosition];
-  let either = Math.random() < 0.5;
-  let newHint;
-  switch (hint) {
-    case "correct":
-      newHint = either ? "close" : "wrong";
-      break;
-    case "close":
-      newHint = either ? "correct" : "wrong";
-      break;
-    case "wrong":
-      newHint = either ? "correct" : "close";
-      break;
+  const correct = hints.filter(x => x === CORRECT).length;
+  let index;
+  if (correct === 5) {
+    return; // shouldn't happen
   }
-  hints[errorPosition] = newHint;
+  else if (correct === 4) {
+    index = (hints.indexOf(WRONG) + 1 + (Math.random() * (LENGTH - 1) | 0)) % LENGTH;
+  } else {
+    index = Math.random() * LENGTH | 0;
+  }
+  hints[index] = (hints[index] + 1 + (Math.random() * 2 | 0)) % 3;
+  lies.push(index);
 }
+
 
 
 function getHints(guess, answer) {
@@ -199,12 +195,12 @@ function getHints(guess, answer) {
    let hints = [];
    for (let i = 0; i < LENGTH; i++) {
       if (guess[i] === answer[i]) {
-        hints[i] = 'correct';
+        hints[i] = CORRECT;
       } else {
-        hints[i] = 'wrong';
+        hints[i] = WRONG;
         for (let j = 0; j < LENGTH; j++) {
-           if (i != j && guess[i] === answer[j] && guess[j] !== answer[j] && !matched[j]) {
-              hints[i] = 'close';
+           if (i !== j && guess[i] === answer[j] && guess[j] !== answer[j] && !matched[j]) {
+              hints[i] = CLOSE;
               matched[j] = true;
               break;
            }
@@ -232,7 +228,6 @@ window.addEventListener('keydown', (e) => {
   } else if (/[a-zA-Z]/.test(key)) {
     key = key.toUpperCase();
   } else {
-    console.log('invalid key');
     return;
   }
   const keyboardElement = document.querySelectorAll(`[data-key='${key}']`)[0];
